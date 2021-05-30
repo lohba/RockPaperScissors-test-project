@@ -7,7 +7,8 @@ contract RockPaperScissors  is Ownable{
     using SafeERC20 for IERC20;
     
     IERC20 public token; 
-    uint fee; // entrance fee
+    uint256 fee; // entrance fee
+    uint256 roundId; 
     
     constructor(IERC20 _token, uint _fee) {
         token = _token;
@@ -15,9 +16,16 @@ contract RockPaperScissors  is Ownable{
     }
     
     struct Round {
-         address alice;
-         address bob;
-         mapping(address => uint256) moves;
+         address player_1;
+         address player_2;
+         bytes32 payer_1_move_hash;
+         bytes32 payer_2_move_hash;
+         mapping(address => Move) moves;
+     }
+     
+     struct Move {
+         bytes hashMove;
+         uint256 finalMove;
      }
     
     
@@ -27,7 +35,7 @@ contract RockPaperScissors  is Ownable{
     mapping(uint256 => Round) internal roundData;
     
     //0 = ROCK 1 = PAPER 2 = SCISSORS
-    enum RockPaperScissors{ ROCK, PAPER, SCISSORS }
+    enum Option{ ROCK, PAPER, SCISSORS }
     
     mapping(address => uint8) public choices; // keeps track of player choices
     
@@ -36,18 +44,30 @@ contract RockPaperScissors  is Ownable{
     }
     
     //Create new round with id and entrance fee
-    function createRound(uint256 _roundId, uint256 _fee) external {
+    function startGame(uint256 _roundId, uint256 _fee) external {
         Round storage round = roundData[_roundId];
+        require(token.balanceOf(msg.sender) >= _fee);
+        token.transferFrom(msg.sender, address(this), _fee);
+        round.player_1 = msg.sender;
     }
     
-    function releaseFunds() public onlyOwner {
+    //Make first move with id and move
+    function move(uint256 _roundId, uint256 _move) external{
+        validPlayer(_roundId, msg.sender);
+        Move storage move = roundData[_roundId].moves[msg.sender];
+        move.finalMove = _move;
+    }
+    
+    // Ensure valid player has joined the game
+    function validPlayer(uint256 _roundId, address _player) internal {
+        Round storage round = roundData[_roundId];
+        require(round.player_1 == _player || round.player_2 == _player, "not valid player");
+    }
+    
+    function joinGame() public onlyOwner {
         
     }
     
     
-    function startGame(uint8 choice) public {
-        //require(choice == ROCK || choice == PAPER || choice == SCISSORS);
-        require(choices[msg.sender] == 0);
-        choices[msg.sender] = choice;
-    }
+
 }
