@@ -2,7 +2,7 @@ pragma solidity 0.8.0;
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelinV2/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/ownership/Ownable.sol";
-contract RockPaperScissors  is Ownable{
+ccontract RockPaperScissors  is Ownable{
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
     
@@ -65,7 +65,7 @@ contract RockPaperScissors  is Ownable{
     }
     
     // Reveal hashed moved
-    function reveal(uint256 _roundId, Option _option,  uint256 _salt) external {
+    function reveal(uint256 _roundId, Option _option, uint256 _salt) external {
         require(keccak256(abi.encodePacked(_option, _salt)) == getCommit(_roundId), "incorrect hash");
         require(_option == Option.ROCK || _option == Option.PAPER || _option == Option.SCISSORS);
         
@@ -74,6 +74,14 @@ contract RockPaperScissors  is Ownable{
         } else {
             roundData[_roundId].moves[roundData[_roundId].player_2].finalMove = _option;
         }
+    }
+    
+    // Decide on winner of round
+    function roundOutcome(uint256 _roundId) internal {
+        Round storage round = roundData[_roundId];
+        Move storage player_1 = round.moves[round.player_1]; 
+        Move storage player_2 = round.moves[round.player_2]; 
+        
     }
     
     // Ensure valid player has joined the game
