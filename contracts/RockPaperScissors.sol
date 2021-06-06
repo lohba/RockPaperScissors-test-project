@@ -2,7 +2,7 @@ pragma solidity 0.8.0;
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelinV2/contracts/token/ERC20/SafeERC20.sol";
 import "@openzeppelin/contracts/ownership/Ownable.sol";
-ccontract RockPaperScissors  is Ownable{
+contract RockPaperScissors  is Ownable{
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
     
@@ -28,15 +28,17 @@ ccontract RockPaperScissors  is Ownable{
          Option finalMove;
      }
     
+    //0 = ROCK 1 = PAPER 2 = SCISSORS
+    enum Option{ ROCK, PAPER, SCISSORS }
     
     //maps round ids to user moves. 
     mapping(uint256 => uint8) private firstChoice;
     mapping(uint256 => address) private gameStarter;
     
     mapping(uint256 => Round) internal roundData;
+    mapping(uint256 => mapping(address => bool)) hasRevealed;
     
-    //0 = ROCK 1 = PAPER 2 = SCISSORS
-    enum Option{ ROCK, PAPER, SCISSORS }
+
     
     mapping(address => uint8) public choices; // keeps track of player choices
     
@@ -74,14 +76,34 @@ ccontract RockPaperScissors  is Ownable{
         } else {
             roundData[_roundId].moves[roundData[_roundId].player_2].finalMove = _option;
         }
+        hasRevealed[_roundId][msg.sender] = true;
     }
     
-    // Decide on winner of round
-    function roundOutcome(uint256 _roundId) internal {
+    // Confirm both moves have been revealed 
+    function confirmReveal(uint256 _roundId) internal {
         Round storage round = roundData[_roundId];
-        Move storage player_1 = round.moves[round.player_1]; 
-        Move storage player_2 = round.moves[round.player_2]; 
+        Move storage _1 = round.moves[round.player_1]; 
+        Move storage _2 = round.moves[round.player_2]; 
+        (address player_1, address player_2) = (roundData[_roundId].player_1, roundData[_roundId].player_2);
+        require(hasRevealed[_roundId][player_1] && hasRevealed[_roundId][player_2]);
+        calculateWinner(_roundId);
+    }
+    
+    // Calculate the winner 
+    function calculateWinner(uint256 _roundId) internal {
+        Round storage round = roundData[_roundId];
+        (address player_1, address player_2) = (roundData[_roundId].player_1, roundData[_roundId].player_2);
+        round.moves[player_1].finalMove == round.moves[player_2].finalMove ? resetGame(_roundId) : 
         
+    } 
+    
+    // Reset Game incase of Retrieve
+    function resetGame(uint256 _roundId) internal {
+        Round storage round = roundData[_roundId];
+        round.player_1_move_hash == "";
+        round.player_2_move_hash == "";
+        round.moves[player_1].finalMove == "";
+        round.moves[player_2].finalMove == "";
     }
     
     // Ensure valid player has joined the game
