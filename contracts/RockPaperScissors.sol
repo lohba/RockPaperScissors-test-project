@@ -29,7 +29,6 @@ contract RockPaperScissors {
          bytes32 player_2_move_reveal;
          uint256 player_1_move_time;
          uint256 player_2_move_time;
-         uint256 timeStamp;
      }
 
     
@@ -106,6 +105,11 @@ contract RockPaperScissors {
     function calculateWinner(uint256 _roundId) internal {
         Round storage round = roundData[_roundId];
         (address player_1, address player_2) = (roundData[_roundId].player_1, roundData[_roundId].player_2);
+        if(roundData[_roundId].player_1_move_time < block.time - 2000 && round.player_2_move_hash !== "") {
+            token.safeTransferFrom(address(this), roundData[_roundId].player_2, _fee); 
+        } else if (roundData[_roundId].player_2_move_time < block.time - 2000 && round.player_1_move_hash !== "") {
+            token.safeTransferFrom(address(this), roundData[_roundId].player_1, _fee);
+        } 
         
         round.player_1_move_reveal == round.player_2_move_reveal ? resetGame(_roundId) : 
         
