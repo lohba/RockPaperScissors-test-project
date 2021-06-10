@@ -25,8 +25,8 @@ contract RockPaperScissors {
          address player_2;
          bytes32 player_1_move_hash;
          bytes32 player_2_move_hash;
-         bytes32 player_1_move_reveal;
-         bytes32 player_2_move_reveal;
+         uint256 player_1_move_reveal;
+         uint256 player_2_move_reveal;
          uint256 player_1_move_time;
          uint256 player_2_move_time;
      }
@@ -54,17 +54,17 @@ contract RockPaperScissors {
         Round storage round = roundData[_roundId];
         token.safeTransferFrom(msg.sender, address(this), _fee);  
         round.player_1 = msg.sender;
-        roundData[_roundId].layer_1_move_time = block.timestamp;
+        roundData[_roundId].player_1_move_time = block.timestamp;
     }
     
     //Join round with id and entrance fee
     function join(uint256 _roundId, uint256 _fee) external {
-        require(msg.sender != round.player_1, "not valid player");
-        require(round.player_2 == address(0), "already initialized address");
+        require(msg.sender != roundData[_roundId].player_1, "not valid player");
+        require(roundData[_roundId].player_2 == address(0), "already initialized address");
         Round storage round = roundData[_roundId];
         token.safeTransferFrom(msg.sender, address(this), _fee);  
         round.player_2 = msg.sender;
-        roundData[_roundId].layer_2_move_time = block.timestamp;
+        roundData[_roundId].player_2_move_time = block.timestamp;
     }
     
     //Make first move with id and hashed move
@@ -81,14 +81,15 @@ contract RockPaperScissors {
     
     // Reveal hashed moved
     function reveal(uint256 _roundId, Option _option, uint256 _salt) external {
-        require(round.player_1_move_hash == bytes32(0)) && (round.player_2_move_hash == bytes32(0)); // check for empty move
+        require(roundData[_roundId].player_1_move_hash == bytes32(0) && roundData[_roundId].player_2_move_hash == bytes32(0)); // check for empty move
         require(createHashMove(_option, _salt) == getCommit(_roundId), "incorrect hash");
         require(_option == Option.ROCK || _option == Option.PAPER || _option == Option.SCISSORS);
+        Round storage round = roundData[_roundId];
         
-        if(msg.sender == roundData[_roundId].player_1){
-            roundData[_roundId].player_1_move_reveal = _option;
+        if(msg.sender == round.player_1){
+            round.player_1_move_reveal = _option;
         } else {
-            roundData[_roundId].player_2_move_reveal = _option;
+            round.player_2_move_reveal = _option;
         }
         hasRevealed[_roundId][msg.sender] = true;
     }
@@ -96,7 +97,7 @@ contract RockPaperScissors {
     // Confirm both moves have been revealed 
     function confirmReveal(uint256 _roundId) internal {
         Round storage round = roundData[_roundId];
-        (address player_1, address player_2) = (roundData[_roundId].player_1, roundData[_roundId].player_2);
+        (address player_1, address player_2) = (round.player_1, round.player_2);
         require(hasRevealed[_roundId][player_1] && hasRevealed[_roundId][player_2]);
         calculateWinner(_roundId);
     }
@@ -105,15 +106,26 @@ contract RockPaperScissors {
     function calculateWinner(uint256 _roundId) internal {
         Round storage round = roundData[_roundId];
         (address player_1, address player_2) = (roundData[_roundId].player_1, roundData[_roundId].player_2);
-        if(roundData[_roundId].player_1_move_time < block.time - 2000 && round.player_2_move_hash !== "") {
-            token.safeTransferFrom(address(this), roundData[_roundId].player_2, _fee); 
-        } else if (roundData[_roundId].player_2_move_time < block.time - 2000 && round.player_1_move_hash !== "") {
-            token.safeTransferFrom(address(this), roundData[_roundId].player_1, _fee);
+        if(roundData[_roundId].player_1_move_time < block.timestamp - 2000 && round.player_2_move_hash != "") {
+            token.safeTransferFrom(address(this), roundData[_roundId].player_2, fee); 
+        } else if (roundData[_roundId].player_2_move_time < block.timestamp - 2000 && round.player_1_move_hash != "") {
+            token.safeTransferFrom(address(this), roundData[_roundId].player_1, fee);
         } 
         
-        round.player_1_move_reveal == round.player_2_move_reveal ? resetGame(_roundId) : 
-        
+        round.player_1_move_reveal == round.player_2_move_reveal ? resetGame(_roundId) 
+        : round.player_1_move_reveal = Option.ROCK && round.player_2_move_reveal!= Option.SCISSORS ? _winner(_roundId, player_1)
+        : round.player_1_move_reveal = Option.ROCK && round.player_2_move_reveal!= Option.PAPER ? _winner(_roundId, player_2)
+        : round.player_1_move_reveal = Option.PAPER && round.player_2_move_reveal!= Option.ROCK ? _winner(_roundId, player_1)
+        : round.player_1_move_reveal = Option.PAPER && round.player_2_move_reveal!= Option.SCISSORS ? _winner(_roundId, player_2)
+        : round.player_1_move_reveal = Option.SCISSORS && round.player_2_move_reveal!= Option.PAPER ? _winner(_roundId, player_1)
+        : round.player_1_move_reveal = Option.SCISSORS && round.player_2_move_reveal!= Option.ROCK ? _winner(_roundId, player_2)
+        : revert("Something bad happened");
     } 
+    
+    //Winner 
+    function _winner(uint256 _roundId, address player) internal {
+        token.safeTransfer((address(this), player, fee*2)); //transfer prize to winner
+    }
     
     // Reset Game incase of Retrieve
     function resetGame(uint256 _roundId) internal {
@@ -131,7 +143,7 @@ contract RockPaperScissors {
     
     // Retrieve hash for a move
     function getCommit(uint256 _roundId) public view returns(bytes32){
-        return msg.sender == roundData[id].player_1 ? roundData[id].player_1_move_hash : roundData[id].player_2_move_hash;
+        return msg.sender == roundData[_roundId].player_1 ? roundData[_roundId].player_1_move_hash : roundData[_roundId].player_2_move_hash;
     }
     
     //
