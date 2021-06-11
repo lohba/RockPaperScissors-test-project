@@ -29,6 +29,7 @@ contract RockPaperScissors {
          uint256 player_2_move_reveal;
          uint256 player_1_move_time;
          uint256 player_2_move_time;
+         bool active;
      }
 
     
@@ -99,6 +100,7 @@ contract RockPaperScissors {
         Round storage round = roundData[_roundId];
         (address player_1, address player_2) = (round.player_1, round.player_2);
         require(hasRevealed[_roundId][player_1] && hasRevealed[_roundId][player_2]);
+        roundData[roundId].active = true; //make sure round is active
         calculateWinner(_roundId);
     }
     
@@ -120,11 +122,15 @@ contract RockPaperScissors {
         : round.player_1_move_reveal = Option.SCISSORS && round.player_2_move_reveal!= Option.PAPER ? _winner(_roundId, player_1)
         : round.player_1_move_reveal = Option.SCISSORS && round.player_2_move_reveal!= Option.ROCK ? _winner(_roundId, player_2)
         : revert("Something bad happened");
+        
+        
     } 
     
     //Winner 
     function _winner(uint256 _roundId, address player) internal {
-        token.safeTransfer((address(this), player, fee*2)); //transfer prize to winner
+        require(roundData[_roundId].active == true, "not active game");
+        token.safeTransferFrom(address(this), player, fee*2); //transfer prize to winner
+        roundData[_roundId].active == false;
     }
     
     // Reset Game incase of Retrieve
@@ -132,8 +138,8 @@ contract RockPaperScissors {
         Round storage round = roundData[_roundId];
         round.player_1_move_hash == "";
         round.player_2_move_hash == "";
-        round.player_1_move_reveal == "";
-        round.player_2_move_reveal == "";
+        round.player_1_move_reveal == uint256(0);
+        round.player_2_move_reveal == uint256(0);
     }
     
     // Create hash for a move
