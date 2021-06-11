@@ -18,20 +18,22 @@ contract RockPaperScissors {
     }
     
     //0 = ROCK 1 = PAPER 2 = SCISSORS
-    enum Option{ ROCK, PAPER, SCISSORS }
-    
+    enum Option{ NULL, ROCK, PAPER, SCISSORS }
+
     struct Round {
          address player_1;
          address player_2;
          bytes32 player_1_move_hash;
          bytes32 player_2_move_hash;
-         uint256 player_1_move_reveal;
-         uint256 player_2_move_reveal;
+         Option player_1_move_reveal; // uint256 input, typecasted automatically to Option
+         Option player_2_move_reveal;
          uint256 player_1_move_time;
          uint256 player_2_move_time;
          bool active;
      }
-
+     
+    // Implicit cast from uint256 to Option
+    // You can't do implicit the other way, hence you'd have to uint256(Option.ROCK)
     
     //maps round ids to user moves. 
     mapping(uint256 => uint8) private firstChoice;
@@ -96,7 +98,7 @@ contract RockPaperScissors {
     }
     
     // Confirm both moves have been revealed 
-    function confirmReveal(uint256 _roundId) internal {
+    function _confirmReveal(uint256 _roundId) internal {
         Round storage round = roundData[_roundId];
         (address player_1, address player_2) = (round.player_1, round.player_2);
         require(hasRevealed[_roundId][player_1] && hasRevealed[_roundId][player_2]);
@@ -105,25 +107,50 @@ contract RockPaperScissors {
     }
     
     // Calculate the winner 
-    function calculateWinner(uint256 _roundId) internal {
+    function _calculateWinner(uint256 _roundId) internal {
         Round storage round = roundData[_roundId];
+        
         (address player_1, address player_2) = (roundData[_roundId].player_1, roundData[_roundId].player_2);
+        
+        // Time Out
         if(roundData[_roundId].player_1_move_time < block.timestamp - 2000 && round.player_2_move_hash != "") {
-            token.safeTransferFrom(address(this), roundData[_roundId].player_2, fee); 
+            return token.safeTransferFrom(address(this), roundData[_roundId].player_2, fee); 
         } else if (roundData[_roundId].player_2_move_time < block.timestamp - 2000 && round.player_1_move_hash != "") {
-            token.safeTransferFrom(address(this), roundData[_roundId].player_1, fee);
+            return token.safeTransferFrom(address(this), roundData[_roundId].player_1, fee);
         } 
         
-        round.player_1_move_reveal == round.player_2_move_reveal ? resetGame(_roundId) 
-        : round.player_1_move_reveal = Option.ROCK && round.player_2_move_reveal!= Option.SCISSORS ? _winner(_roundId, player_1)
-        : round.player_1_move_reveal = Option.ROCK && round.player_2_move_reveal!= Option.PAPER ? _winner(_roundId, player_2)
-        : round.player_1_move_reveal = Option.PAPER && round.player_2_move_reveal!= Option.ROCK ? _winner(_roundId, player_1)
-        : round.player_1_move_reveal = Option.PAPER && round.player_2_move_reveal!= Option.SCISSORS ? _winner(_roundId, player_2)
-        : round.player_1_move_reveal = Option.SCISSORS && round.player_2_move_reveal!= Option.PAPER ? _winner(_roundId, player_1)
-        : round.player_1_move_reveal = Option.SCISSORS && round.player_2_move_reveal!= Option.ROCK ? _winner(_roundId, player_2)
-        : revert("Something bad happened");
-        
-        
+        // Compare moves
+        if(round.player_1_move_reveal == round.player_2_move_reveal){
+            resetGame(_roundId);
+        }
+        if(round.player_1_move_reveal == Option.ROCK) {
+            if(round.player_2_move_reveal != Option.PAPER) {
+                _winner(_roundId, player_1);
+            }
+            if(round.player_2_move_reveal == Option.SCISSORS) {
+                _winner(_roundId, player_2);
+            }
+            
+        if(round.player_1_move_reveal == Option.PAPER) {
+             if(round.player_2_move_reveal != Option.SCISSORS){
+                _winner(_roundId, player_2);
+             }
+             if(round.player_2_move_reveal == Option.ROCK) {
+                _winner(_roundId, player_1);
+            }
+        }
+        if(round.player_1_move_reveal == Option.SCISSORS) {
+             if(round.player_2_move_reveal != Option.ROCK){
+                _winner(_roundId, player_2);
+             }
+             if(round.player_2_move_reveal == Option.PAPER) {
+                _winner(_roundId, player_1);
+            }
+        }
+        else {
+            revert("Something bad happened");
+        }
+    }
     } 
     
     //Winner 
@@ -134,12 +161,12 @@ contract RockPaperScissors {
     }
     
     // Reset Game incase of Retrieve
-    function resetGame(uint256 _roundId) internal {
+    function _resetGame(uint256 _roundId) internal {
         Round storage round = roundData[_roundId];
         round.player_1_move_hash == "";
         round.player_2_move_hash == "";
-        round.player_1_move_reveal == uint256(0);
-        round.player_2_move_reveal == uint256(0);
+        round.player_1_move_reveal == Option.NULL;
+        round.player_2_move_reveal == Option.NULL;
     }
     
     // Create hash for a move
@@ -151,9 +178,5 @@ contract RockPaperScissors {
     function getCommit(uint256 _roundId) public view returns(bytes32){
         return msg.sender == roundData[_roundId].player_1 ? roundData[_roundId].player_1_move_hash : roundData[_roundId].player_2_move_hash;
     }
-    
-    //
-    
-    
 
 }
